@@ -894,3 +894,15 @@ html[data-input="key"] .office :focus-visible{outline:3px solid var(--butter);ou
 .lock-open{visibility:hidden}
 #gate-stage.lock-opened .lock-open{visibility:visible}
 #gate-stage.lock-opened .lock-closed{visibility:hidden}
+
+/* cloning vessel bubbles: rise, sway, pop under the lid */
+.vessel-bubbles{pointer-events:none;overflow:visible}
+.vb-rise{animation:vbRise linear infinite}
+.vb-sway{animation:vbSway ease-in-out infinite alternate}
+.vb-ball{fill:rgba(215,255,238,.22);stroke:rgba(235,255,245,.95);stroke-width:2.2}
+.vb-shine{fill:rgba(255,255,255,.85)}
+.vb-pop{fill:none;stroke:rgba(235,255,245,.95);stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;animation:vbPop linear infinite}
+@keyframes vbRise{0%{transform:translate(0,0);opacity:0}6%{opacity:1}89.5%{transform:translate(var(--dx),var(--rise));opacity:1}90%,100%{transform:translate(var(--dx),var(--rise));opacity:0}}
+@keyframes vbSway{from{transform:translateX(-4px)}to{transform:translateX(4px)}}
+@keyframes vbPop{0%,89.5%{opacity:0;transform:scale(.5)}90%{opacity:.95;transform:scale(.7)}96%{opacity:0;transform:scale(1.7)}100%{opacity:0;transform:scale(1.7)}}
+@media (prefers-reduced-motion: reduce){.vb-rise,.vb-sway,.vb-pop{animation:none}.vessel-bubbles{display:none}}

@@ -998,3 +998,18 @@ export function playTubeFlicker(on: boolean, pan = 0) {
     else burst(c, out, t, 0.06, (x) => (x < 0.2 ? 1 : 0.3), [{ type: "highpass", f: 2000 }], 0.6, [0.2, 1.8], [2, 6]);
   } catch { /* sound is optional */ }
 }
+
+/** A bubble bursting at the top of the cloning vessel: a wet "plop" (bigger bubble = lower, louder). */
+export function playBubblePop(size = 0.6, pan = 0) {
+  try {
+    const sz = Math.max(0.3, Math.min(1, size));
+    const m = master(0.08 + 0.1 * sz); if (!m) return; const { c, out, t } = m;
+    const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); out.disconnect(); out.connect(p); p.connect(c.destination);
+    const f0 = 380 + (1 - sz) * 700 + Math.random() * 120;
+    const o = c.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2.6, t + 0.05);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.1);
+    burst(c, out, t + 0.004, 0.035, (x) => 1 - x, [{ type: "bandpass", f: 2600 + Math.random() * 1200, q: 1.2 }], 0.35);   // the film snapping
+  } catch { /* sound is optional */ }
+}

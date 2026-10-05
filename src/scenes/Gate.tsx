@@ -5,7 +5,7 @@ import { CLONE, LOCK, SCENE_LAYERS } from "./config";
 import { ClassifiedFile } from "@/overlays/ClassifiedFile";
 import { preloadFile } from "@/lib/fileArt";
 import { playDoorOpen, playLockdownClose, playLockdownOpen, playVesselBlip, startGaugeDings, startLockdownAlarm, startPipeFlow, startSubmergedBubbleLoop } from "@/lib/fileSounds";
-import { Faucet, FirstAidKit, GateBackdrop, HomePad, SlimeDrips } from "./GateProps";
+import { Faucet, FirstAidKit, GateBackdrop, HomePad, SlimeDrips, VesselBubbles } from "./GateProps";
 
 // new lockdown door art, cropped to canvas box x 1389-2513, y 292-1712
 const LOCK_BOX = { left: `${1389 / 38.4}%`, top: `${292 / 18}%`, width: `${1124 / 38.4}%`, height: `${1420 / 18}%` };
@@ -123,6 +123,7 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
         <SceneLayer name="clonebase.webp" box={SCENE_LAYERS.full} className="clone-body" />
         {CLONE.gauges.map((g, i) => <Gauge key={i} {...g} active={cloneHover && !fileOpen} />)}
         <SceneLayer name="clonespecimen.webp" box={SCENE_LAYERS.full} className="clone-specimen" />
+        <VesselBubbles live={on && !fileOpen} />
         <SceneLayer name="clonecables.webp" box={SCENE_LAYERS.full} className="clone-cables" />
         {CLONE.lights.map((l, i) => (
           <span key={i} className="cap-light" aria-hidden="true" style={{

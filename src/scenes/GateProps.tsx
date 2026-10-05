@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { playDrip, playValveTurn, startPour } from "@/lib/fileSounds";
+import { playBubblePop, playDrip, playValveTurn, startPour } from "@/lib/fileSounds";
 
 // Gate scene additions drawn over the art (all coordinates in the 3840x1800 canvas):
 // devil-silhouette logo on the lab sign, wall first-aid kit, the new background's live
@@ -218,5 +218,54 @@ export function HomePad({ tabIndex, onHome, onTag }: { tabIndex: number; onHome:
       <button type="button" className="gate-homepad" style={box(1172, 855, 104, 126)} tabIndex={tabIndex} aria-label="Exit to the home page" onClick={onHome}
         onPointerEnter={() => onTag?.(true)} onPointerLeave={() => onTag?.(false)} onFocus={() => onTag?.(true)} onBlur={() => onTag?.(false)} />
     </>
+  );
+}
+
+// ---------------------------------------------------------------- cloning vessel: bubbles rise through the serum and pop under the lid
+// Liquid area of the tank in canvas px: x 640-995, surface ~812, bottom ~1300. Each bubble rises on its own
+// loop and pops at 90% of it; the pop sound is scheduled on the same clock as the CSS loop.
+const VB = { x: 640, y: 790, w: 355, h: 520, top: 814, bottom: 1296 };
+const VB_N = 16;
+export function VesselBubbles({ live }: { live: boolean }) {
+  const born = useRef(performance.now());
+  const bubbles = Array.from({ length: VB_N }, (_, i) => {
+    const r = 4 + rnd(i, 31) * 9;
+    const x = 672 + rnd(i, 32) * 290;
+    const dur = 4.5 + rnd(i, 33) * 3.8, delay = -rnd(i, 34) * dur;
+    const dx = (rnd(i, 35) - 0.5) * 30;
+    return { r, x, dur, delay, dx, rise: VB.top + r - VB.bottom };
+  });
+  useEffect(() => {
+    if (!live) return;
+    const timers: number[] = [];
+    bubbles.forEach((b, i) => {
+      const next = () => {
+        const now = (performance.now() - born.current) / 1000;
+        const phase = ((((now - b.delay) % b.dur) + b.dur) % b.dur) / b.dur;
+        const dt = ((((0.9 - phase) % 1) + 1) % 1) * b.dur || b.dur;
+        timers.push(window.setTimeout(() => { playBubblePop(b.r / 11, -0.55 + (b.x - 640) / 355 * 0.2); next(); }, dt * 1000));
+      };
+      if (i % 2 === 0 || b.r > 6) next();                        // the small ones pop silently, so it never turns into a rattle
+    });
+    return () => timers.forEach((id) => window.clearTimeout(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
+  return (
+    <svg className="gate-layer vessel-bubbles" style={box(VB.x, VB.y, VB.w, VB.h)} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`} aria-hidden="true">
+      {bubbles.map((b, i) => {
+        const st = { "--rise": `${b.rise}px`, "--dx": `${b.dx}px`, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` } as CSSProperties;
+        return (
+          <g key={i}>
+            <g className="vb-rise" style={st}>
+              <g className="vb-sway" style={{ animationDuration: `${1.1 + rnd(i, 36) * 0.9}s`, animationDelay: `${-rnd(i, 37) * 2}s` }}>
+                <circle cx={b.x} cy={VB.bottom} r={b.r} className="vb-ball" />
+                <circle cx={b.x - b.r * 0.35} cy={VB.bottom - b.r * 0.38} r={Math.max(1, b.r * 0.28)} className="vb-shine" />
+              </g>
+            </g>
+            <circle className="vb-pop" cx={b.x + b.dx} cy={VB.top + b.r} r={b.r * 1.4} style={{ animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
