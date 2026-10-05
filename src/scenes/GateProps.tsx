@@ -161,7 +161,7 @@ export function Faucet({ tabIndex, onTag }: { tabIndex: number; onTag?: (on: boo
 // Tips are the drawn drip ends (found in the door art). Each one slowly swells a droplet, lets it
 // fall to the floor and splash, on its own random rhythm.
 type Tip = [number, number];
-const LOCK_TIPS: Tip[] = [[1782, 656], [2174, 626], [2396, 754], [1858, 771], [1736, 957], [2159, 996], [2290, 1034], [1972, 1239], [2158, 1279], [1767, 1320]];
+const LOCK_TIPS: Tip[] = [[1769, 1371], [2370, 1203], [1938, 1339], [1756, 631], [1865, 854], [2325, 1098], [1723, 1052], [2424, 754], [2182, 1071], [2189, 631]];   // drip ends on the new closed door
 const CLOSED_TIPS: Tip[] = [[2959, 888], [2850, 985], [2927, 1137], [2884, 1298], [3194, 1070], [3210, 1260], [3281, 968], [3047, 1365], [2730, 854]];
 const OPEN_TIPS: Tip[] = [[2959, 888], [2840, 984], [2895, 1136], [2865, 1298], [3214, 1070], [3280, 966], [3223, 1247], [2730, 853]];
 const FLOOR = 1592;
@@ -200,10 +200,10 @@ function DripSet({ tips, className, seed, sound }: { tips: Tip[]; className?: st
     </div>
   );
 }
-export function SlimeDrips({ live, doorOpen }: { live: boolean; doorOpen: boolean }) {
+export function SlimeDrips({ live, doorOpen, lockOpen = false }: { live: boolean; doorOpen: boolean; lockOpen?: boolean }) {
   return (
     <>
-      <DripSet tips={LOCK_TIPS} seed={1} sound={live} />
+      <DripSet tips={LOCK_TIPS} className="lock-closed" seed={1} sound={live && !lockOpen} />
       <DripSet tips={CLOSED_TIPS} className="slime-closed" seed={7} sound={live && !doorOpen} />
       <DripSet tips={OPEN_TIPS} className="slime-open-layer" seed={13} sound={live && doorOpen} />
     </>

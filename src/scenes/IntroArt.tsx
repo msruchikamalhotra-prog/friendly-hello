@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { sceneImage, type SceneImage } from "@/config/cdn";
 import { homepageArt } from "@/lib/homepageAsset";
-import { FirstAidKit, GateBackdrop, SignLogo } from "./GateProps";
+import { FirstAidKit, GateBackdrop } from "./GateProps";
 
 // Home screen: the broken-wall art (homepage.webp, 1821x864) with the CURRENT gate room showing
 // through the hole. The full art sits underneath as a fallback, the gate layers go on top of it,
@@ -10,7 +10,7 @@ const HOLE_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1821 864'
 const HOLE_MASK = `url("data:image/svg+xml,${encodeURIComponent(HOLE_SVG)}")`;
 // where the 3840x1800 gate canvas sits inside the 1821x864 art (scale .345, top-left 272,139)
 const SCENE: CSSProperties = { left: `${272 / 18.21}%`, top: `${139 / 8.64}%`, width: `${(3840 * 0.345) / 18.21}%`, height: `${(1800 * 0.345) / 8.64}%` };
-const LAYERS: SceneImage[] = ["bg.webp", "chair.webp", "clonebase.webp", "clonespecimen.webp", "clonecables.webp", "closeddoor.webp", "lockdoor.webp"];
+const LAYERS: SceneImage[] = ["bg.webp", "chair.webp", "clonebase.webp", "clonespecimen.webp", "clonecables.webp", "closeddoor.webp"];
 const FULL: CSSProperties = { left: 0, top: 0, width: "100%", height: "100%" };
 
 export function IntroArt() {
@@ -23,7 +23,7 @@ export function IntroArt() {
         {LAYERS.slice(1, 5).map((n) => <img key={n} className="gate-layer" src={sceneImage(n)} alt="" style={FULL} draggable={false} />)}
         <FirstAidKit />
         {LAYERS.slice(5).map((n) => <img key={n} className="gate-layer" src={sceneImage(n)} alt="" style={FULL} draggable={false} />)}
-        <SignLogo />
+        <img className="gate-layer" src="/scene/lockdoor-closed.webp" alt="" draggable={false} style={{ left: `${1389 / 38.4}%`, top: `${292 / 18}%`, width: `${1124 / 38.4}%`, height: `${1420 / 18}%` }} />
         <img className="gate-layer" src={sceneImage("bgsilhouette.webp")} alt="" style={FULL} draggable={false} />
       </div>
       <img className="intro-art intro-rubble" src={homepageArt} alt="" draggable={false} style={{ maskImage: HOLE_MASK, WebkitMaskImage: HOLE_MASK }} />

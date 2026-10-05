@@ -4,8 +4,13 @@ import { sceneImage, type SceneImage } from "@/config/cdn";
 import { CLONE, LOCK, SCENE_LAYERS } from "./config";
 import { ClassifiedFile } from "@/overlays/ClassifiedFile";
 import { preloadFile } from "@/lib/fileArt";
-import { playDoorBurst, playDoorOpen, playVesselBlip, startAlertLoop, startGaugeDings, startPipeFlow, startSubmergedBubbleLoop } from "@/lib/fileSounds";
-import { Faucet, FirstAidKit, GateBackdrop, HomePad, SignLogo, SlimeDrips } from "./GateProps";
+import { playDoorOpen, playLockdownClose, playLockdownOpen, playVesselBlip, startGaugeDings, startLockdownAlarm, startPipeFlow, startSubmergedBubbleLoop } from "@/lib/fileSounds";
+import { Faucet, FirstAidKit, GateBackdrop, HomePad, SlimeDrips } from "./GateProps";
+
+// new lockdown door art, cropped to canvas box x 1389-2513, y 292-1712
+const LOCK_BOX = { left: `${1389 / 38.4}%`, top: `${292 / 18}%`, width: `${1124 / 38.4}%`, height: `${1420 / 18}%` };
+const LOCK_CLOSED = "/scene/lockdoor-closed.webp";
+const LOCK_OPEN = "/scene/lockdoor-open.webp";
 
 type LayerBox = { left: number; top: number; width: number; height: number; objectPosition?: string };
 type Props = { on: boolean; warm?: boolean; zoom?: "" | "zoom-from"; onDoor: () => void; onLab?: () => void; onHome?: () => void };
@@ -52,15 +57,19 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
   const [lockHover, setLockHover] = useState(false);
   const [faucetHover, setFaucetHover] = useState(false);
   const [homeHover, setHomeHover] = useState(false);
-  // lockdown door: click it and something on the other side throws itself at it
-  const [burst, setBurst] = useState(false);
-  const burstTimer = useRef(0);
-  const slam = () => {
-    if (burst || fileOpen) return;
-    setBurst(true); playDoorBurst();
-    burstTimer.current = window.setTimeout(() => setBurst(false), 1700);
+  // lockdown door: click to force it open (chains hold, it opens a crack, red light inside), click again
+  // or wait and it slams shut. Only the door changes: open/closed art swap, no flicker.
+  const [lockOpen, setLockOpen] = useState(false);
+  const lockTimer = useRef(0);
+  const toggleLock = () => {
+    if (fileOpen) return;
+    window.clearTimeout(lockTimer.current);
+    if (lockOpen) { setLockOpen(false); playLockdownClose(); return; }
+    setLockOpen(true); playLockdownOpen();
+    lockTimer.current = window.setTimeout(() => { setLockOpen(false); playLockdownClose(); }, 7000);
   };
-  useEffect(() => () => window.clearTimeout(burstTimer.current), []);
+  useEffect(() => () => window.clearTimeout(lockTimer.current), []);
+  useEffect(() => { if (!on) { window.clearTimeout(lockTimer.current); setLockOpen(false); } }, [on]);
   const born = useRef(performance.now());              // CSS loops (vessel lights, drips) run from mount: sounds use the same clock
   const lastDoorSound = useRef(0);
   const doorSound = () => { const now = performance.now(); if (now - lastDoorSound.current > 1200) { lastDoorSound.current = now; playDoorOpen(); } };
@@ -96,9 +105,9 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, [on, fileOpen]);
   useEffect(() => {                                   // quiet lockdown alert while the red alarm is up
-    if (!on || !lockHover || fileOpen) return;
-    return startAlertLoop();
-  }, [on, lockHover, fileOpen]);
+    if (!on || !(lockHover || lockOpen) || fileOpen) return;
+    return startLockdownAlarm();                       // the red beacons on top of the door: lockdown siren
+  }, [on, lockHover, lockOpen, fileOpen]);
   const openFile = async () => {
     if (fileBusy || fileOpen) return;
     setFileBusy(true); await preloadFile(); setFileBusy(false); // never open onto a blank page
@@ -107,7 +116,7 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
   const closeFile = useCallback(() => setFileOpen(false), []);
   return (
     <section id="s-gate" className={"scene" + (on ? " on" : warm ? " warm" : "") + (zoom ? " " + zoom : "")} aria-hidden={!on}>
-      <div id="gate-stage" inert={fileOpen} className={[open && openReady ? "slime-open" : "", cloneHover ? "clone-hover" : "", fileOpen ? "file-open" : "", burst ? "lock-burst" : ""].filter(Boolean).join(" ")}>
+      <div id="gate-stage" inert={fileOpen} className={[open && openReady ? "slime-open" : "", cloneHover ? "clone-hover" : "", fileOpen ? "file-open" : "", lockOpen ? "lock-opened" : ""].filter(Boolean).join(" ")}>
         <SceneLayer name="bg.webp" box={SCENE_LAYERS.full} className="gate-background" />
         <GateBackdrop />
         <SceneLayer name="chair.webp" box={SCENE_LAYERS.full} />
@@ -123,18 +132,12 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
         ))}
         <FirstAidKit />
         <SceneLayer name="closeddoor.webp" box={SCENE_LAYERS.full} className="slime-closed" />
-        <SceneLayer name="lockdoor.webp" box={SCENE_LAYERS.full} />
-        <SignLogo />
-        {/* the two door leaves pulled apart a few px against the chains (only drawn while it happens) */}
-        <div className={"lock-split" + (burst ? " on" : "")} aria-hidden="true">
-          <i className="lock-gap" />
-          <div className="lock-leaf l"><SceneLayer name="lockdoor.webp" box={SCENE_LAYERS.full} className="lock-leaf-img" /><SignLogo /></div>
-          <div className="lock-leaf r"><SceneLayer name="lockdoor.webp" box={SCENE_LAYERS.full} className="lock-leaf-img" /></div>
-          <i className="lock-glow" />
-        </div>
+        {/* lockdown door: closed / forced-open art (Noaccessclose / Noaccessopen, aligned, devil logo on the sign) */}
+        <img className="gate-layer lock-closed" src={LOCK_CLOSED} alt="" draggable={false} decoding="sync" style={LOCK_BOX} />
+        <img className="gate-layer lock-open" src={LOCK_OPEN} alt="" draggable={false} decoding="sync" loading="eager" style={LOCK_BOX} />
         <SceneLayer name="opendoor.webp" box={SCENE_LAYERS.full} className="slime-open-layer"
           onLoad={(event) => { void event.currentTarget.decode().then(() => setOpenReady(true)).catch(() => setOpenReady(false)); }} />
-        <SlimeDrips live={on && !fileOpen} doorOpen={open && openReady} />
+        <SlimeDrips live={on && !fileOpen} doorOpen={open && openReady} lockOpen={lockOpen} />
         <HomePad tabIndex={on ? 0 : -1} onHome={() => onHome?.()} onTag={setHomeHover} />
         <Faucet tabIndex={on ? 0 : -1} onTag={setFaucetHover} />
         <SceneLayer name="bgsilhouette.webp" box={SCENE_LAYERS.full} className="gate-silhouette" />
@@ -146,7 +149,7 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
         <button type="button" className="lock-hit" style={position(SCENE_LAYERS.lockHit)}
           aria-label="Open lab lockdown room" tabIndex={on ? 0 : -1}
           onPointerEnter={(event) => { if (event.pointerType === "mouse") setLockHover(true); }}
-          onPointerLeave={() => setLockHover(false)} onFocus={() => setLockHover(true)} onBlur={() => setLockHover(false)} onClick={() => { slam(); onLab?.(); }} />
+          onPointerLeave={() => setLockHover(false)} onFocus={() => setLockHover(true)} onBlur={() => setLockHover(false)} onClick={() => { toggleLock(); onLab?.(); }} />
         <Button type="button" variant="ghost" className="slime-hit" style={position(SCENE_LAYERS.doorHit)}
           aria-label="Open Department of FOMO" tabIndex={on ? 0 : -1}
           onPointerEnter={(event) => { if (event.pointerType === "mouse") { setOpen(true); doorSound(); } }}
@@ -157,7 +160,7 @@ export function Gate({ on, warm = false, zoom = "", onDoor, onLab, onHome }: Pro
       {/* UI above the pulsing overlay, same frame as the stage, so the hint stays readable */}
       <div id="gate-ui" aria-hidden="true">
         {/* lockdown door: only the two warning lamps blink while the cursor is on it (no sweeping beams, no red wash) */}
-        <div className={"alarm" + ((lockHover || burst) && !fileOpen ? " on" : "")}>
+        <div className={"alarm" + ((lockHover || lockOpen) && !fileOpen ? " on" : "")}>
           {LOCK.beacons.map((b, i) => (
             <span key={i} className="beacon" style={{ left: `${b.x}%`, top: `${b.y}%`, "--bd": `${i * -0.55}s` } as CSSProperties}>
               <i className="beacon-lamp" />

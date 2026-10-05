@@ -845,30 +845,93 @@ export function playVesselBlip(red: boolean) {
     tone(c, out, t, red ? 880 : 1760, red ? 0.09 : 0.04, 0.9, red ? "square" : "sine");
   } catch { /* sound is optional */ }
 }
-/** Lockdown door: something slams into it from inside, chains rattle, lights fail, it growls. */
-export function playDoorBurst() {
+// master() with a brick-wall limiter in front of the speakers (the door hits are big and stacked)
+function limited(volume: number) {
+  const m = master(volume); if (!m) return null;
+  const lim = m.c.createDynamicsCompressor();
+  lim.threshold.value = -8; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+  m.out.disconnect(); m.out.connect(lim); lim.connect(m.c.destination);
+  return m;
+}
+function clinks(c: AudioContext, out: AudioNode, t: number, n: number, span: number, lvl: number) {
+  for (let i = 0; i < n; i++) {                                     // chain links knocking together
+    const at = t + Math.random() * span, f = 2000 + Math.random() * 3400;
+    const o = c.createOscillator(); o.type = "triangle"; o.frequency.value = f;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(lvl * (0.5 + Math.random() * 0.5), at + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.08 + Math.random() * 0.12);
+    o.connect(g); g.connect(out); o.start(at); o.stop(at + 0.25);
+  }
+}
+/** Lockdown door forced open a crack: bolt unlatches, hydraulics hiss, the heavy leaves grind apart
+ *  against the chains, and a low red hum breathes out of the gap. */
+export function playLockdownOpen() {
   try {
-    const m = master(0.6); if (!m) return; const { c, out, t } = m;
-    thump(c, out, t, 58, 26, 0.6, 1); burst(c, out, t, 0.35, (x) => Math.pow(1 - x, 2), [{ type: "lowpass", f: 900, to: [[120, 0.3]] }], 0.9);
-    thump(c, out, t + 0.62, 52, 24, 0.5, 0.85); burst(c, out, t + 0.62, 0.3, (x) => Math.pow(1 - x, 2), [{ type: "lowpass", f: 800 }], 0.7);
-    for (let i = 0; i < 26; i++) {                                   // chain links clanking
-      const at = t + 0.03 + Math.random() * 1.4, f = 2200 + Math.random() * 3200;
-      const o = c.createOscillator(); o.type = "triangle"; o.frequency.value = f;
-      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.12 * (1 - (at - t) / 1.6), at + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.09 + Math.random() * 0.1);
-      o.connect(g); g.connect(out); o.start(at); o.stop(at + 0.25);
+    const m = limited(0.55); if (!m) return; const { c, out, t } = m;
+    thump(c, out, t, 95, 42, 0.32, 0.9);                             // bolt
+    burst(c, out, t, 0.05, (x) => 1 - x, [{ type: "highpass", f: 1800 }], 0.5);
+    burst(c, out, t + 0.08, 0.9, (x) => (x < 0.1 ? x / 0.1 : Math.pow(1 - x, 1.5)), [{ type: "bandpass", f: 3400, q: 0.9, to: [[1400, 0.85]] }], 0.22);   // hydraulic hiss
+    const gr = c.createOscillator(); gr.type = "sawtooth"; gr.frequency.setValueAtTime(58, t + 0.15); gr.frequency.linearRampToValueAtTime(84, t + 0.9); gr.frequency.linearRampToValueAtTime(62, t + 1.35);
+    const vib = c.createOscillator(); vib.frequency.value = 11; const vg = c.createGain(); vg.gain.value = 6; vib.connect(vg); vg.connect(gr.frequency);
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 5; bp.frequency.setValueAtTime(760, t + 0.15); bp.frequency.linearRampToValueAtTime(320, t + 1.35);
+    const gg = c.createGain(); gg.gain.setValueAtTime(0.0001, t + 0.15); gg.gain.exponentialRampToValueAtTime(0.28, t + 0.35); gg.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    gr.connect(bp); bp.connect(gg); gg.connect(out); gr.start(t + 0.15); gr.stop(t + 1.45); vib.start(t + 0.15); vib.stop(t + 1.45);   // metal grinding
+    clinks(c, out, t + 0.2, 16, 1.0, 0.11);
+    thump(c, out, t + 1.3, 70, 34, 0.35, 0.55);                      // leaves stop hard on the chains
+    clinks(c, out, t + 1.3, 8, 0.35, 0.13);
+    for (const [f, lv] of [[55, 0.14], [58.3, 0.1]] as const) {      // red hum from inside
+      const o = c.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t + 0.6); g.gain.exponentialRampToValueAtTime(lv, t + 1.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.6);
+      o.connect(g); g.connect(out); o.start(t + 0.6); o.stop(t + 3.7);
     }
-    const cr = c.createOscillator(); cr.type = "sawtooth"; cr.frequency.setValueAtTime(70, t + 0.1); cr.frequency.linearRampToValueAtTime(110, t + 0.7); cr.frequency.linearRampToValueAtTime(60, t + 1.4);
-    const cb = c.createBiquadFilter(); cb.type = "bandpass"; cb.frequency.value = 520; cb.Q.value = 6;
-    const cg = c.createGain(); cg.gain.setValueAtTime(0.0001, t + 0.1); cg.gain.exponentialRampToValueAtTime(0.16, t + 0.3); cg.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
-    cr.connect(cb); cb.connect(cg); cg.connect(out); cr.start(t + 0.1); cr.stop(t + 1.6);       // metal groaning under the strain
-    zap(c, out, t + 0.12, 0.18, 0.2); zap(c, out, t + 0.34, 0.1, 0.16); zap(c, out, t + 0.75, 0.22, 0.18);     // lights shorting out
-    const gr = c.createOscillator(); gr.type = "sawtooth"; gr.frequency.setValueAtTime(48, t + 0.25); gr.frequency.linearRampToValueAtTime(38, t + 1.3);
-    const gm = c.createOscillator(); gm.frequency.value = 23; const gmg = c.createGain(); gmg.gain.value = 0.5;
-    const gg = c.createGain(); gg.gain.setValueAtTime(0.0001, t + 0.25); gg.gain.exponentialRampToValueAtTime(0.22, t + 0.5); gg.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
-    gm.connect(gmg); gmg.connect(gg.gain);
-    const gl = c.createBiquadFilter(); gl.type = "lowpass"; gl.frequency.value = 380;
-    gr.connect(gl); gl.connect(gg); gg.connect(out); gr.start(t + 0.25); gr.stop(t + 1.45); gm.start(t + 0.25); gm.stop(t + 1.45);   // growl behind the door
   } catch { /* sound is optional */ }
+}
+/** Lockdown door slamming shut: heavy boom, metal ring, chains snapping tight. */
+export function playLockdownClose() {
+  try {
+    const m = limited(0.45); if (!m) return; const { c, out, t } = m;
+    thump(c, out, t, 62, 24, 0.7, 0.7);
+    burst(c, out, t, 0.3, (x) => (x < 0.04 ? x / 0.04 : Math.pow(1 - x, 2.2)), [{ type: "lowpass", f: 1100, to: [[150, 0.25]] }], 0.28);
+    for (const [f, lv] of [[196, 0.09], [293, 0.06], [415, 0.04]] as const) {   // the steel rings
+      const o = c.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t + 0.01); g.gain.exponentialRampToValueAtTime(lv, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + 1.65);
+    }
+    clinks(c, out, t + 0.02, 14, 0.5, 0.14);
+  } catch { /* sound is optional */ }
+}
+/** Lockdown siren for the red beacons: a rising "whoop" every 1.1 s (same cycle as the lamps). */
+export function startLockdownAlarm(): () => void {
+  try {
+    const c = audio(); if (!c) return () => undefined;
+    const out = c.createGain(); out.gain.value = 0.0001; out.connect(c.destination);
+    out.gain.exponentialRampToValueAtTime(0.26, c.currentTime + 0.25);
+    const dly = c.createDelay(1); dly.delayTime.value = 0.19; const fb = c.createGain(); fb.gain.value = 0.28;
+    out.connect(dly); dly.connect(fb); fb.connect(dly); fb.connect(c.destination);
+    let alive = true; const timers: number[] = [];
+    const whoop = () => {
+      if (!alive) return;
+      if (c.state === "running") {
+        const t = c.currentTime + 0.02, d = 0.78;
+        const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+        const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.6; bp.frequency.setValueAtTime(700, t); bp.frequency.linearRampToValueAtTime(1500, t + d);
+        const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.06); g.gain.setValueAtTime(1, t + d - 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        for (const [type, mul, lv] of [["square", 1, 0.5], ["sawtooth", 1.005, 0.4], ["square", 0.5, 0.25]] as const) {
+          const o = c.createOscillator(); o.type = type;
+          o.frequency.setValueAtTime(390 * mul, t); o.frequency.exponentialRampToValueAtTime(880 * mul, t + d);
+          const og = c.createGain(); og.gain.value = lv; o.connect(og); og.connect(bp); o.start(t); o.stop(t + d + 0.02);
+        }
+        bp.connect(lp); lp.connect(g); g.connect(out);
+      }
+      timers.push(window.setTimeout(whoop, 1100));
+    };
+    whoop();
+    return () => {
+      alive = false; timers.forEach((id) => window.clearTimeout(id));
+      const t = c.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(Math.max(out.gain.value, 0.0001), t);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      window.setTimeout(() => { try { out.disconnect(); fb.disconnect(); } catch { /* gone */ } }, 1200);
+    };
+  } catch { return () => undefined; }
 }
 
 // ---------------------------------------------------------------- lab: horror room tone + flickering tubes

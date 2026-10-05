@@ -73,7 +73,7 @@ export const CLONE = {
 
 // Lab lockdown door: the sign's text strip and the two red beacons (canvas px -> %).
 export const LOCK = {
-  beacons: [{ x: 1665 / 38.4, y: 435 / 18 }, { x: 2246 / 38.4, y: 436 / 18 }],
+  beacons: [{ x: 1642 / 38.4, y: 438 / 18 }, { x: 2270 / 38.4, y: 434 / 18 }],
 } as const;
 
 // Classified file: bestspread.webp is a full 3840x1800 canvas with the open folder embedded in
